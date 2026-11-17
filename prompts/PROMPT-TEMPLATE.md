@@ -1,0 +1,1 @@
+leia @docs/PROMPTxxx.md e compreenda as instruções. esclareça suas dúvidas para garantir que compreendeu o que deverá ser feito. elabore um plano de execução das instruções e ao final proponha abrir uma nova seção em modo de codificação antes de prosseguir na execução do plano.
