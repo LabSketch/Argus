@@ -75,7 +75,35 @@ Argus.xcodeproj/                # Xcode project for Helper (to be created)
 
 ## Build Commands
 
-### MCP Server + Core (Swift Package Manager)
+### Using Make (Recommended)
+
+```bash
+# Build all targets (SPM + Helper app + MCP binary)
+make build
+
+# Build only SPM targets
+make build-spm
+
+# Build macOS Helper app (.app bundle)
+make build-helper
+
+# Build MCP Server binary (copied to build/bin/)
+make build-mcp-server
+
+# Run all tests
+make test
+
+# Run SPM tests only
+make test-spm
+
+# Clean build artifacts
+make clean
+
+# Generate Xcode project (requires xcodegen)
+make xcodeproj
+```
+
+### Swift Package Manager (Direct)
 
 ```bash
 # Build
@@ -88,7 +116,7 @@ swift test
 swift run ArgusMCPServer
 ```
 
-### macOS Helper (Xcode)
+### macOS Helper (Xcode — Not Yet Verified)
 
 ```bash
 # Build
@@ -103,12 +131,68 @@ open build/Build/Products/Debug/ArgusMacOSHelper.app
 
 > ⚠️ **Not yet verified:** Xcode project creation and Helper build/test commands. The `.xcodeproj` must be created manually in Xcode or via `xcodegen`.
 
-## Run Commands (Unverified)
+## Run Commands
 
 | Command | Description | Status |
 |---------|-------------|--------|
-| `swift run ArgusMCPServer` | Start MCP server (stdio transport) | ⚠️ Not yet verified |
-| `open build/Build/Products/Debug/ArgusMacOSHelper.app` | Launch Helper app | ⚠️ Not yet verified |
+| `make run-mcp-server` | Start MCP server (stdio transport) | ✅ Verified |
+| `make run-helper` | Build and launch Helper app | ✅ Verified |
+| `swift run ArgusMCPServer` | Start MCP server via SPM | ✅ Verified |
+| `open build/ArgusMacOSHelper.app` | Launch Helper app (built via Make) | ✅ Verified |
+
+## Build Artifacts
+
+| Artifact | Location | Description |
+|----------|----------|-------------|
+| Helper app bundle | `build/ArgusMacOSHelper.app` | macOS app with NSApplication lifecycle |
+| MCP Server binary | `build/bin/argus-mcp-server` | Standalone executable for MCP clients |
+| SPM binaries | `.build/debug/` | Debug builds from Swift Package Manager |
+
+## MCP Client Configuration
+
+### Using Built Binary (Recommended)
+
+```json
+{
+  "mcpServers": {
+    "argus": {
+      "command": "/path/to/Argus/build/bin/argus-mcp-server",
+      "args": []
+    }
+  }
+}
+```
+
+### Using Swift PM (Development)
+
+```json
+{
+  "mcpServers": {
+    "argus": {
+      "command": "swift",
+      "args": ["run", "ArgusMCPServer"],
+      "cwd": "/path/to/Argus"
+    }
+  }
+}
+```
+
+### Helper Requirement
+
+The MCP server requires the Helper app to be running. Start it first:
+
+```bash
+# Terminal 1: Start Helper
+make run-helper
+
+# Terminal 2: Start MCP Server
+make run-mcp-server
+```
+
+Or run both together:
+```bash
+make run-helper && make run-mcp-server
+```
 
 ## MCP Client Configuration (Example)
 
