@@ -1,4 +1,4 @@
-.PHONY: help build test clean run-mcp-server run-helper package xcodeproj build-helper-spm package-helper
+.PHONY: help build test clean run-mcp-server run-helper package xcodeproj build-helper-spm package-helper build-mcp-server package-mcp-server
 
 # Default target
 help:
@@ -7,9 +7,10 @@ help:
 	@echo "Usage: make <target>"
 	@echo ""
 	@echo "Targets:"
-	@echo "  build             Build all targets (SPM)"
+	@echo "  build             Build all targets (SPM + Helper app + MCP binary)"
 	@echo "  build-spm         Build Swift Package Manager targets only"
 	@echo "  build-helper      Build macOS Helper app via SwiftPM + package as .app"
+	@echo "  build-mcp-server  Build MCP Server binary (copied to build/bin/)"
 	@echo "  test              Run all tests (SPM)"
 	@echo "  test-spm          Run Swift Package Manager tests only"
 	@echo "  run-mcp-server    Run the MCP server (requires Helper running)"
@@ -52,8 +53,21 @@ build-helper: build-helper-spm
 run-helper: build-helper-spm
 	open $(HELPER_APP)
 
+# MCP Server binary
+MCP_EXECUTABLE := .build/debug/ArgusMCPServer
+MCP_BIN_DIR := build/bin
+
+build-mcp-server: build-spm
+	@mkdir -p $(MCP_BIN_DIR)
+	@cp $(MCP_EXECUTABLE) $(MCP_BIN_DIR)/argus-mcp-server
+	@chmod +x $(MCP_BIN_DIR)/argus-mcp-server
+	@echo "MCP Server binary created at $(MCP_BIN_DIR)/argus-mcp-server"
+
+package-mcp-server: build-mcp-server
+	@echo "MCP Server binary packaged at $(MCP_BIN_DIR)/argus-mcp-server"
+
 # Combined targets
-build: build-spm build-helper-spm
+build: build-spm build-helper-spm build-mcp-server
 
 test: test-spm
 
