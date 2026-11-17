@@ -66,6 +66,9 @@ Tests/
     ToolRegistryTests.swift
   ArgusMacOSHelperTests/
     SessionTests.swift
+prompts/
+  PROMPT-TEMPLATE.md
+  1-PROMPT-SETUP.md
 Package.swift                   # SPM manifest
 Argus.xcodeproj/                # Xcode project for Helper (to be created)
 ```
@@ -199,7 +202,7 @@ Create a `project.yml` and run `xcodegen` to generate the project programmatical
 
 ## Validation Checklist
 
-Per AGENTS.md, a feature is done only when:
+A feature is done only when:
 
 1. ✅ Behavior and error cases are documented
 2. ✅ Relevant tests have been added or updated
