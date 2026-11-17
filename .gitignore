@@ -1,5 +1,5 @@
-# Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode,swift
-# Edit at https://www.toptal.com/developers/gitignore?templates=visualstudiocode,swift
+# Created by https://www.toptal.com/developers/gitignore/api/swift,visualstudiocode,xcode
+# Edit at https://www.toptal.com/developers/gitignore?templates=swift,visualstudiocode,xcode
 
 ### Swift ###
 # Xcode
@@ -104,4 +104,19 @@ iOSInjectionProject/
 .history
 .ionide
 
-# End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,swift
+### Xcode ###
+
+## Xcode 8 and earlier
+
+### Xcode Patch ###
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcodeproj/project.xcworkspace/
+!*.xcworkspace/contents.xcworkspacedata
+/*.gcno
+**/xcshareddata/WorkspaceSettings.xcsettings
+
+# End of https://www.toptal.com/developers/gitignore/api/swift,visualstudiocode,xcode
+
+*.o
