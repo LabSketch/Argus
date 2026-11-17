@@ -1,7 +1,7 @@
 Prepare a estrutura inicial do projeto Swift “Argus” no repositório aberto. O projeto será um MCP Server e um macOS Helper; o MCP client, como Kilo Code, é externo. O Helper manterá uma sessão WebPage do WebKit na main actor.
 
 Antes de alterar arquivos:
-1. Inspecione o repositório, o AGENTS.md, as ferramentas instaladas e qualquer código existente.
+1. Inspecione o repositório, as ferramentas instaladas e qualquer código existente.
 2. Preserve o que já estiver correto; não substitua arquivos ou configurações sem necessidade.
 3. Verifique se o SDK de macOS e o toolchain disponíveis expõem a API WebPage necessária. Não presuma que ela existe nem a substitua por WKWebView silenciosamente.
 4. Resuma brevemente a estrutura proposta e eventuais limitações do ambiente.
@@ -16,7 +16,7 @@ Depois, prepare um scaffold funcional, sem implementar ainda a automação compl
 - Inclua testes mínimos para os tipos e a validação básica de mensagens.
 - Configure `.gitignore`, nomes consistentes e estrutura adequada ao desenvolvimento pelo terminal e VS Code.
 - Atualize ou crie um README com pré-requisitos confirmados, comandos reais de build/test, estrutura do projeto, arquitetura e limitações. Não apresente comandos como testados se não os executou.
-- Preserve o AGENTS.md existente e ajuste-o somente se encontrar instruções contraditórias.
+- Preserve documentos existentes e ajuste-os somente se encontrar instruções contraditórias.
 
 Não implemente ferramentas MCP completas, navegação, execução de JavaScript, automação de sites, acesso a shell ou leitura de arquivos do usuário nesta etapa. O objetivo é deixar uma base organizada, compilável quando o SDK disponível permitir, e pronta para desenvolvimento incremental.
 

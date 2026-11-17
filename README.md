@@ -246,7 +246,7 @@ Argus treats pages, scripts, and page-derived data as untrusted.
    - Delegate callbacks for navigation events
    - Cookie/storage management
    
-   The `evaluate_js` tool currently returns an error indicating this limitation. A future version may need to use `WKWebView` instead (requires approval per AGENTS.md).
+   The `evaluate_js` tool currently returns an error indicating this limitation. A future version may need to use `WKWebView` instead.
 
 2. **IPC Client implementation:** The `IPCClient` in `ArgusMCPServer` uses `CFSocket` with a simplified implementation. It needs proper async/await integration and timeout handling.
 
