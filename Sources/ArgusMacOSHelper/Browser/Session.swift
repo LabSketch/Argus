@@ -1,9 +1,9 @@
 import Foundation
-import SwiftUI
 import WebKit
 import ArgusCore
 
 @MainActor
+@available(macOS 26.0, *)
 public final class BrowserSession {
     private var webPage: WebPage?
     private var currentURL: URL?
@@ -17,7 +17,7 @@ public final class BrowserSession {
     public var loadingState: Bool { isLoading }
 
     public func navigate(to url: URL) async throws -> NavigationResult {
-        guard webPage != nil else {
+        if webPage == nil {
             webPage = WebPage()
         }
 
@@ -59,6 +59,7 @@ public final class BrowserSession {
 }
 
 @MainActor
+@available(macOS 26.0, *)
 public final class WebPageProxy {
     private let session: BrowserSession
 

@@ -1,11 +1,13 @@
 import Foundation
 import ArgusCore
 
-public final class IPCServer {
+@available(macOS 26.0, *)
+public final class IPCServer: @unchecked Sendable {
     private let socketPath: String
     private let requestHandler: RequestHandler
-    private var listener: CFSocket?
-    private var runLoopSource: CFRunLoopSource?
+    private var serverSocket: Int32 = -1
+    private var running = false
+    private let queue = DispatchQueue(label: "argus.ipc.server")
 
     public init(socketPath: String, requestHandler: RequestHandler) {
         self.socketPath = socketPath
@@ -13,135 +15,131 @@ public final class IPCServer {
     }
 
     public func start() throws {
-        try FileManager.default.removeItemIfExists(atPath: socketPath)
+        try? FileManager.default.removeItem(atPath: socketPath)
 
-        var context = CFSocketContext(version: 0, info: Unmanaged.passRetained(self).toOpaque(), retain: nil, release: { ptr in
-            Unmanaged<IPCServer>.fromOpaque(ptr).release()
-        }, copyDescription: nil)
-
-        let callback: CFSocketCallBack = { socket, callbackType, address, data, info in
-            guard let info = info else { return }
-            let server = Unmanaged<IPCServer>.fromOpaque(info).takeUnretainedValue()
-            
-            if callbackType == CFSocketAcceptCallBack {
-                server.handleAccept(socket: socket, nativeHandle: data)
-            }
-        }
-
-        listener = CFSocketCreate(kCFAllocatorDefault, PF_UNIX, SOCK_STREAM, 0, CFSocketAcceptCallBack, callback, &context)
-
-        guard let listener = listener else {
+        serverSocket = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard serverSocket >= 0 else {
             throw IPCProtocolError.connectionClosed
         }
 
         var addr = sockaddr_un()
         addr.sun_family = sa_family_t(AF_UNIX)
-        let pathBytes = socketPath.utf8CString
-        _ = withUnsafeMutableBytes(of: &addr.sun_path) { buffer in
+        let pathBytes = Array(socketPath.utf8)
+        withUnsafeMutableBytes(of: &addr.sun_path) { buffer in
             buffer.copyBytes(from: pathBytes)
         }
 
-        let addrData = Data(bytes: &addr, count: MemoryLayout<sockaddr_un>.size)
-        let bindResult = CFSocketSetAddress(listener, addrData as CFData)
+        let addrLen = socklen_t(MemoryLayout<sockaddr_un>.size)
+        let bindResult = withUnsafePointer(to: addr) { ptr in
+            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPtr in
+                Darwin.bind(serverSocket, sockaddrPtr, addrLen)
+            }
+        }
 
-        if bindResult != .success {
-            CFSocketInvalidate(listener)
+        guard bindResult == 0 else {
+            close(serverSocket)
+            serverSocket = -1
             throw IPCProtocolError.connectionClosed
         }
 
-        runLoopSource = CFSocketCreateRunLoopSource(kCFAllocatorDefault, listener, 0)
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource!, .commonModes)
+        guard listen(serverSocket, 5) == 0 else {
+            close(serverSocket)
+            serverSocket = -1
+            throw IPCProtocolError.connectionClosed
+        }
 
-        print("IPC Server started on \(socketPath)", to: &standardError)
+        running = true
+        FileHandle.standardError.write("IPC Server started on \(socketPath)\n".data(using: .utf8)!)
+
+        queue.async { [weak self] in
+            self?.acceptLoop()
+        }
     }
 
     public func stop() {
-        if let runLoopSource = runLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
-            self.runLoopSource = nil
+        running = false
+        if serverSocket >= 0 {
+            close(serverSocket)
+            serverSocket = -1
         }
-        if let listener = listener {
-            CFSocketInvalidate(listener)
-            self.listener = nil
-        }
-        try? FileManager.default.removeItemIfExists(atPath: socketPath)
-        print("IPC Server stopped", to: &standardError)
+        try? FileManager.default.removeItem(atPath: socketPath)
+        FileHandle.standardError.write("IPC Server stopped\n".data(using: .utf8)!)
     }
 
-    private func handleAccept(socket: CFSocket, nativeHandle: CFData?) {
-        guard let nativeHandle = nativeHandle,
-              let clientSocket = CFSocketCreateWithNative(kCFAllocatorDefault, CFSocketGetNative(socket), 0, nil, nil) else {
-            return
-        }
+    private func acceptLoop() {
+        var addr = sockaddr_un()
+        var addrLen = socklen_t(MemoryLayout<sockaddr_un>.size)
 
-        let clientHandler = ClientConnection(socket: clientSocket, handler: requestHandler)
-        clientHandler.start()
-    }
-}
-
-private final class ClientConnection {
-    private let socket: CFSocket
-    private let handler: RequestHandler
-    private let framer = MessageFramer()
-    private let encoder = JSONMessageEncoder()
-    private var runLoopSource: CFRunLoopSource?
-
-    init(socket: CFSocket, handler: RequestHandler) {
-        self.socket = socket
-        self.handler = handler
-    }
-
-    func start() {
-        var context = CFSocketContext(version: 0, info: Unmanaged.passRetained(self).toOpaque(), retain: nil, release: { ptr in
-            Unmanaged<ClientConnection>.fromOpaque(ptr).release()
-        }, copyDescription: nil)
-
-        let callback: CFSocketCallBack = { socket, callbackType, address, data, info in
-            guard let info = info else { return }
-            let connection = Unmanaged<ClientConnection>.fromOpaque(info).takeUnretainedValue()
-            
-            if callbackType == CFSocketReadCallBack, let data = data as? Data {
-                connection.handleRead(data: data)
-            }
-        }
-
-        CFSocketSetSocketFlags(socket, CFSocketFlags(kCFSocketReadCallBack))
-        CFSocketSetCallback(socket, callback, &context)
-
-        runLoopSource = CFSocketCreateRunLoopSource(kCFAllocatorDefault, socket, 0)
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource!, .commonModes)
-    }
-
-    private func handleRead(data: Data) {
-        framer.append(data)
-
-        do {
-            while let messageData = try framer.nextMessage() {
-                do {
-                    let request = try encoder.decode(RPCRequest.self, from: messageData)
-                    let reply = try handler.handle(request: request)
-                    let replyData = try encoder.encode(reply)
-                    let framedReply = FramedMessage(data: replyData).framedData
-                    CFSocketSendData(socket, 0, framedReply as CFData, 5.0)
-                } catch {
-                    let errorReply = RPCReply.failure(id: UUID(), error: .invalidRequest)
-                    if let errorData = try? encoder.encode(errorReply),
-                       let framedError = FramedMessage(data: errorData).framedData as CFData? {
-                        CFSocketSendData(socket, 0, framedError, 5.0)
-                    }
+        while running {
+            let clientSocket = withUnsafeMutablePointer(to: &addr) { ptr in
+                ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPtr in
+                    Darwin.accept(serverSocket, sockaddrPtr, &addrLen)
                 }
             }
-        } catch {
-            print("IPC read error: \(error)", to: &standardError)
-            close()
+
+            guard clientSocket >= 0 else {
+                if running {
+                    FileHandle.standardError.write("Accept error\n".data(using: .utf8)!)
+                }
+                continue
+            }
+
+            handleClient(clientSocket)
         }
     }
 
-    private func close() {
-        if let runLoopSource = runLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
-            self.runLoopSource = nil
+    private func handleClient(_ clientSocket: Int32) {
+        let clientQueue = DispatchQueue(label: "argus.ipc.client.\(clientSocket)")
+        var buffer = Data()
+
+        clientQueue.async { [weak self] in
+            guard let self = self else {
+                close(clientSocket)
+                return
+            }
+
+            var readBuffer = [UInt8](repeating: 0, count: 4096)
+            while true {
+                let bytesRead = Darwin.read(clientSocket, &readBuffer, readBuffer.count)
+                if bytesRead <= 0 {
+                    break
+                }
+                buffer.append(readBuffer, count: bytesRead)
+
+                let framer = MessageFramer()
+                framer.append(buffer)
+
+                do {
+                    while let messageData = try framer.nextMessage() {
+                        buffer.removeFirst(messageData.count + 4)
+                        Task { @MainActor in
+                            do {
+                                let encoder = JSONMessageEncoder()
+                                let request = try encoder.decode(RPCRequest.self, from: messageData)
+                                let result = try await self.requestHandler.handle(request: request)
+                                let replyData = try encoder.encode(result)
+                                let framedReply = FramedMessage(data: replyData).framedData
+                                _ = framedReply.withUnsafeBytes { ptr in
+                                    Darwin.write(clientSocket, ptr.baseAddress, framedReply.count)
+                                }
+                            } catch {
+                                let encoder = JSONMessageEncoder()
+                                let errorReply = RPCReply.failure(id: UUID(), error: .invalidRequest)
+                                if let errorData = try? encoder.encode(errorReply),
+                                   let framedError = FramedMessage(data: errorData).framedData as Data? {
+                                    _ = framedError.withUnsafeBytes { ptr in
+                                        Darwin.write(clientSocket, ptr.baseAddress, framedError.count)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch {
+                    FileHandle.standardError.write("IPC read error: \(error)\n".data(using: .utf8)!)
+                    break
+                }
+            }
+            close(clientSocket)
         }
-        CFSocketInvalidate(socket)
     }
 }

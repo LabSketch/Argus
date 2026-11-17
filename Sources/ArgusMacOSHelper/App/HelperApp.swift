@@ -1,13 +1,13 @@
-import SwiftUI
+import AppKit
 import ArgusCore
 
 @main
-struct HelperApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-
-    var body: some Scene {
-        Settings {
-            EmptyView()
-        }
+@available(macOS 26.0, *)
+struct HelperApp {
+    static func main() {
+        let app = NSApplication.shared
+        let delegate = AppDelegate()
+        app.delegate = delegate
+        app.run()
     }
 }

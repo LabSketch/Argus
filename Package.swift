@@ -17,6 +17,10 @@ let package = Package(
             name: "ArgusMCPServer",
             targets: ["ArgusMCPServer"]
         ),
+        .executable(
+            name: "ArgusMacOSHelper",
+            targets: ["ArgusMacOSHelper"]
+        ),
     ],
     dependencies: [
         // No external dependencies for now
@@ -32,6 +36,15 @@ let package = Package(
             dependencies: ["ArgusCore"],
             path: "Sources/ArgusMCPServer"
         ),
+        .executableTarget(
+            name: "ArgusMacOSHelper",
+            dependencies: ["ArgusCore"],
+            path: "Sources/ArgusMacOSHelper",
+            linkerSettings: [
+                .linkedFramework("WebKit"),
+                .linkedFramework("AppKit")
+            ]
+        ),
         .testTarget(
             name: "ArgusCoreTests",
             dependencies: ["ArgusCore"],
@@ -41,6 +54,11 @@ let package = Package(
             name: "ArgusMCPServerTests",
             dependencies: ["ArgusMCPServer", "ArgusCore"],
             path: "Tests/ArgusMCPServerTests"
+        ),
+        .testTarget(
+            name: "ArgusMacOSHelperTests",
+            dependencies: ["ArgusMacOSHelper", "ArgusCore"],
+            path: "Tests/ArgusMacOSHelperTests"
         ),
     ]
 )

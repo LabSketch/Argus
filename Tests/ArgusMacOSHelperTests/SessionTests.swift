@@ -2,6 +2,7 @@ import Testing
 import Foundation
 @testable import ArgusCore
 
+@available(macOS 26.0, *)
 @Suite("BrowserSession Tests")
 struct BrowserSessionTests {
     @Test("Initial state")
@@ -23,6 +24,7 @@ struct BrowserSessionTests {
     }
 }
 
+@available(macOS 26.0, *)
 @Suite("WebPageProxy Tests")
 struct WebPageProxyTests {
     @Test("Proxy delegates to session")

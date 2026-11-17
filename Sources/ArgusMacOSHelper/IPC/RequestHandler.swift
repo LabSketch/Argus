@@ -1,7 +1,9 @@
 import Foundation
 import ArgusCore
 
-public final class RequestHandler {
+@available(macOS 26.0, *)
+@MainActor
+public final class RequestHandler: @unchecked Sendable {
     private let session: BrowserSession
     private let proxy: WebPageProxy
 
@@ -10,37 +12,43 @@ public final class RequestHandler {
         self.proxy = WebPageProxy(session: session)
     }
 
-    public func handle(request: RPCRequest) throws -> RPCReply {
+    @MainActor
+    public func handle(request: RPCRequest) async throws -> RPCReply {
         switch request.method {
         case "navigate":
-            return try handleNavigate(request: request)
+            return try await handleNavigate(request: request)
         case "evaluate_js":
-            return try handleEvaluateJS(request: request)
+            return try await handleEvaluateJS(request: request)
         case "get_page_info":
-            return try handleGetPageInfo(request: request)
+            return try await handleGetPageInfo(request: request)
         case "close_page":
-            return try handleClosePage(request: request)
+            return try await handleClosePage(request: request)
         default:
             return RPCReply.failure(id: request.id, error: .methodNotFound)
         }
     }
 
-    private func handleNavigate(request: RPCRequest) throws -> RPCReply {
+    private func handleNavigate(request: RPCRequest) async throws -> RPCReply {
         guard let params = request.params?.asObject,
               let urlString = params["url"]?.asString,
               let url = URL(string: urlString) else {
             return RPCReply.failure(id: request.id, error: .invalidParams)
         }
 
-        let result = try awaitWithCheckedContinuation { continuation in
-            Task { @MainActor in
-                do {
-                    let navResult = try await self.proxy.navigate(to: url)
-                    continuation.resume(returning: navResult)
-                } catch {
-                    continuation.resume(returning: NavigationResult(success: false, error: error.localizedDescription))
+        let result: NavigationResult
+        do {
+            result = try await withCheckedThrowingContinuation { continuation in
+                Task { @MainActor in
+                    do {
+                        let navResult = try await self.proxy.navigate(to: url)
+                        continuation.resume(returning: navResult)
+                    } catch {
+                        continuation.resume(returning: NavigationResult(success: false, error: error.localizedDescription))
+                    }
                 }
             }
+        } catch {
+            return RPCReply.failure(id: request.id, error: .internalError)
         }
 
         let resultValue: JSONValue = .object([
@@ -53,27 +61,33 @@ public final class RequestHandler {
         return RPCReply.success(id: request.id, result: resultValue)
     }
 
-    private func handleEvaluateJS(request: RPCRequest) throws -> RPCReply {
+    private func handleEvaluateJS(request: RPCRequest) async throws -> RPCReply {
         guard let params = request.params?.asObject,
               let script = params["script"]?.asString else {
             return RPCReply.failure(id: request.id, error: .invalidParams)
         }
 
-        let result = try awaitWithCheckedContinuation { continuation in
-            Task { @MainActor in
-                do {
-                    let jsResult = try await self.proxy.evaluateJavaScript(script)
-                    continuation.resume(returning: jsResult)
-                } catch {
-                    continuation.resume(returning: JSONValue.object(["error": .string(error.localizedDescription)]))
+        let result: JSONValue
+        do {
+            result = try await withCheckedThrowingContinuation { continuation in
+                Task { @MainActor in
+                    do {
+                        let jsResult = try await self.proxy.evaluateJavaScript(script)
+                        continuation.resume(returning: jsResult)
+                    } catch {
+                        continuation.resume(returning: JSONValue.object(["error": .string(error.localizedDescription)]))
+                    }
                 }
             }
+        } catch {
+            return RPCReply.failure(id: request.id, error: .internalError)
         }
 
         return RPCReply.success(id: request.id, result: result)
     }
 
-    private func handleGetPageInfo(request: RPCRequest) throws -> RPCReply {
+    @MainActor
+    private func handleGetPageInfo(request: RPCRequest) async throws -> RPCReply {
         let pageInfo = proxy.getPageInfo()
         let resultValue: JSONValue = .object([
             "url": pageInfo.url.map { .string($0) } ?? .null,
@@ -84,20 +98,13 @@ public final class RequestHandler {
         return RPCReply.success(id: request.id, result: resultValue)
     }
 
-    private func handleClosePage(request: RPCRequest) throws -> RPCReply {
+    @MainActor
+    private func handleClosePage(request: RPCRequest) async throws -> RPCReply {
         proxy.close()
         let resultValue: JSONValue = .object([
             "success": .bool(true),
             "error": .null
         ])
         return RPCReply.success(id: request.id, result: resultValue)
-    }
-}
-
-private func awaitWithCheckedContinuation<T>(_ body: @escaping (@escaping (T) -> Void) -> Void) throws -> T {
-    try withCheckedThrowingContinuation { continuation in
-        body { result in
-            continuation.resume(returning: result)
-        }
     }
 }

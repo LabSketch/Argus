@@ -3,21 +3,22 @@ import AppKit
 import ArgusCore
 
 @MainActor
+@available(macOS 26.0, *)
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var ipcServer: IPCServer?
     private let browserSession = BrowserSession()
     private var idleTimer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        print("Argus macOS Helper starting...", to: &standardError)
+        FileHandle.standardError.write("Argus macOS Helper starting...\n".data(using: .utf8)!)
 
         let socketPath = defaultSocketPath()
         do {
             ipcServer = try IPCServer(socketPath: socketPath, requestHandler: RequestHandler(session: browserSession))
             try ipcServer?.start()
-            print("IPC server listening on \(socketPath)", to: &standardError)
+            FileHandle.standardError.write("IPC server listening on \(socketPath)\n".data(using: .utf8)!)
         } catch {
-            print("Failed to start IPC server: \(error)", to: &standardError)
+            FileHandle.standardError.write("Failed to start IPC server: \(error)\n".data(using: .utf8)!)
             NSApp.terminate(nil)
             return
         }
@@ -30,7 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         idleTimer = nil
         ipcServer?.stop()
         browserSession.close()
-        print("Argus macOS Helper terminated", to: &standardError)
+        FileHandle.standardError.write("Argus macOS Helper terminated\n".data(using: .utf8)!)
     }
 
     private func startIdleTimer() {
@@ -43,7 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func checkIdle() {
         if browserSession.url == nil {
-            print("No active session, shutting down...", to: &standardError)
+            FileHandle.standardError.write("No active session, shutting down...\n".data(using: .utf8)!)
             NSApp.terminate(nil)
         }
     }

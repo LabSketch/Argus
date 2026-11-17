@@ -1,0 +1,44 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Argus}",
+            "name": "Debug ArgusMCPServer",
+            "target": "ArgusMCPServer",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug ArgusMCPServer"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Argus}",
+            "name": "Release ArgusMCPServer",
+            "target": "ArgusMCPServer",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release ArgusMCPServer"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Argus}",
+            "name": "Debug ArgusMacOSHelper",
+            "target": "ArgusMacOSHelper",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug ArgusMacOSHelper"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Argus}",
+            "name": "Release ArgusMacOSHelper",
+            "target": "ArgusMacOSHelper",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release ArgusMacOSHelper"
+        }
+    ]
+}

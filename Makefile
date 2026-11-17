@@ -1,4 +1,4 @@
-.PHONY: help build test clean run-mcp-server run-helper package xcodeproj
+.PHONY: help build test clean run-mcp-server run-helper package xcodeproj build-helper-spm package-helper
 
 # Default target
 help:
@@ -7,14 +7,13 @@ help:
 	@echo "Usage: make <target>"
 	@echo ""
 	@echo "Targets:"
-	@echo "  build             Build all targets (SPM + Xcode if available)"
+	@echo "  build             Build all targets (SPM)"
 	@echo "  build-spm         Build Swift Package Manager targets only"
-	@echo "  build-helper      Build macOS Helper app (requires Xcode project)"
-	@echo "  test              Run all tests (SPM + Xcode if available)"
+	@echo "  build-helper      Build macOS Helper app via SwiftPM + package as .app"
+	@echo "  test              Run all tests (SPM)"
 	@echo "  test-spm          Run Swift Package Manager tests only"
-	@echo "  test-helper       Run macOS Helper tests (requires Xcode project)"
 	@echo "  run-mcp-server    Run the MCP server (requires Helper running)"
-	@echo "  run-helper        Launch the macOS Helper app"
+	@echo "  run-helper        Build and launch the macOS Helper app"
 	@echo "  clean             Clean build artifacts"
 	@echo "  package           Create release package (not implemented)"
 	@echo "  xcodeproj         Generate Xcode project with xcodegen (if available)"
@@ -30,35 +29,33 @@ test-spm:
 run-mcp-server:
 	swift run ArgusMCPServer
 
-# Xcode targets (require Argus.xcodeproj to exist)
-XCODEPROJ := Argus.xcodeproj
-HELPER_SCHEME := ArgusMacOSHelper
-HELPER_APP := build/Build/Products/Debug/ArgusMacOSHelper.app
+# Helper app via SwiftPM + manual .app bundle creation
+HELPER_EXECUTABLE := .build/debug/ArgusMacOSHelper
+HELPER_APP := build/ArgusMacOSHelper.app
+HELPER_CONTENTS := $(HELPER_APP)/Contents
+HELPER_MACOS := $(HELPER_CONTENTS)/MacOS
+HELPER_RESOURCES := $(HELPER_CONTENTS)/Resources
+INFOPLIST := Sources/ArgusMacOSHelper/Resources/Info.plist
 
-build-helper: $(XCODEPROJ)
-	xcodebuild -project $(XCODEPROJ) -scheme $(HELPER_SCHEME) build
+build-helper-spm: build-spm
+	@mkdir -p $(HELPER_MACOS)
+	@mkdir -p $(HELPER_RESOURCES)
+	@cp $(HELPER_EXECUTABLE) $(HELPER_MACOS)/ArgusMacOSHelper
+	@cp $(INFOPLIST) $(HELPER_CONTENTS)/Info.plist
+	@echo "Helper app created at $(HELPER_APP)"
 
-test-helper: $(XCODEPROJ)
-	xcodebuild test -project $(XCODEPROJ) -scheme $(HELPER_SCHEME)
+package-helper: build-helper-spm
+	@echo "Helper app packaged at $(HELPER_APP)"
 
-run-helper: build-helper
+build-helper: build-helper-spm
+
+run-helper: build-helper-spm
 	open $(HELPER_APP)
 
 # Combined targets
-build: build-spm
-	@if [ -f $(XCODEPROJ) ]; then \
-		$(MAKE) build-helper; \
-	else \
-		echo "Note: Xcode project not found, skipping Helper build"; \
-		echo "Run 'make xcodeproj' to generate it (requires xcodegen)"; \
-	fi
+build: build-spm build-helper-spm
 
 test: test-spm
-	@if [ -f $(XCODEPROJ) ]; then \
-		$(MAKE) test-helper; \
-	else \
-		echo "Note: Xcode project not found, skipping Helper tests"; \
-	fi
 
 # Clean
 clean:
